@@ -2,17 +2,18 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const path = require("path");
+require('dotenv').config();
 
 // Exportation des modules de sécurité
 const dataSanitize = require("express-mongo-sanitize");
-const hpp = require("hpp")
+const hpp = require("hpp");
 
 // Définition des routes
 const userRoutes = require('./routes/userRoute');
 const sauceRoutes = require('./routes/sauceRoute');
 
 // Connexion à la base de données MongoDB
-mongoose.connect("mongodb+srv://Jean:6Fli3CwxaYCymI3M@cluster0.kd3z567.mongodb.net/?retryWrites=true&w=majority",
+mongoose.connect(process.env.DB,
 {    useNewUrlParser: true,
      useUnifiedTopology: true })
 .then(() => console.log("Connexion à MongoDB réussie."))
