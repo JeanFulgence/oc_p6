@@ -2,24 +2,39 @@
 const Sauce = require("../models/sauceModel");
 const fs = require("fs");
 
-// Récupération de toutes les sauces
+// Création d'une expression régulière pour la saisie des champs de la sauce
+let regex = /^[a-zA-Z0-9 _.,!&]+$/;
+
+// Fonction de récupération de toutes les sauces
 exports.getAllSauces = (req, res, next) => {
      Sauce.find()
      .then((sauces) => res.status(200).json(sauces))
      .catch((error) => res.status(400).json({ error }));
 }
 
-// Récupération d'une sauce
+// Fonction de récupération d'une sauce
 exports.getOneSauce = (req, res, next) => {
+
+     // Récupération de la sauce via l'id de la requête
      Sauce.findOne({ _id: req.params.id })
      .then((sauce) => res.status(200).json(sauce))
      .catch((error) => res.status(404).json({ error }));
 }
 
-// Création d'une sauce
+// Fonction de création d'une sauce
 exports.createSauce = (req, res, next) => {
      const sauceObject = JSON.parse(req.body.sauce);
      delete sauceObject._id;
+
+     // Vérification de l'expression régulière
+     if (!regex.test(sauceObject.name) ||
+     !regex.test(sauceObject.manufacturer) ||
+     !regex.test(sauceObject.description) ||
+     !regex.test(sauceObject.mainPepper)
+     ) {
+          return res.status(500)
+          .json({ error: "Certains champs contiennent des caractères non-valides." });
+     }
      const sauce = new Sauce({
           ...sauceObject,
           imageUrl: `${req.protocol}://${req.get("host")}/images/${req.file.filename}`,
@@ -33,34 +48,98 @@ exports.createSauce = (req, res, next) => {
      .catch(error => { res.status(400).json({ error })});
 }
 
-// Modification d'une sauce
+// Fonction de modification d'une sauce
 exports.modifySauce = (req, res, next) => {
      const sauceObject = req.file ? {
          ...JSON.parse(req.body.sauce),
-         imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`} : { ...req.body };
+         imageUrl: `${req.protocol}://${req.get("host")}/images/${req.file.filename}`} : { ...req.body };
      Sauce.updateOne({ _id : req.params.id}, {...sauceObject, _id: req.params.id})
      .then(res.status(200).json({ message : "Sauce modifiée"}))
      .catch(error => res.status(400).json({ error }))
 }
 
-// Suppression d'une sauce
+// Fonction de suppression d'une sauce
 exports.deleteSauce = (req, res, next) => {
+
+     // Récupération de la sauce via l'id de la requête
      Sauce.findOne({ _id: req.params.id })
      .then(sauce => {
+
+          // Vérification de la correspondance entre créateur de la sauce et l'utilisateur qui souhaite l'effacer
           if (sauce.userId != req.auth.userId) {
-               res.status(401).json({message: 'Non autorisé.'});
+               res.status(401).json({message: "Non autorisé."});
+
+          // Suppression de la sauce
           } else {
-               const filename = sauce.imageUrl.split('/images/')[1];
+               const filename = sauce.imageUrl.split("/images/")[1];
                fs.unlink(`images/${filename}`, () => {
                     Sauce.deleteOne({ _id: req.params.id })
-                    .then(() => { res.status(200).json({message: 'Sauce supprimée.'})})
+                    .then(() => { res.status(200).json({message: "Sauce supprimée."})})
                     .catch(error => res.status(400).json({ error }));
                });
           }
      })
      .catch( error => res.status(500).json({ error }));
-};
-/*
-exports.opinionSauce = (req, res, next) => {
-     
-}*/
+}
+
+// Fonction like/dislike
+exports.opinionOnSauce = (req, res, next) => {
+     // Gestion des trois types d'envoi du frontend: "1", "0", et "-1"
+     switch (req.body.like) {
+
+          // Ajout d'un like et de l'id de l'utilisateur dans les propriétés "likes" et "usersLiked" de la sauce si on reçoit "1" du front
+          case 1 :
+
+               // Push de l'id de l'utilisateur dans "usersLiked" et incrémentation de "likes"
+               Sauce.updateOne(
+                    { _id: req.params.id },
+                    { $push: { usersLiked: req.body.userId },
+                    $inc: { likes: +1 }})
+               .then(() => res.status(200).json({ message: "Like!" }))
+               .catch((error) => res.status(400).json({ error }))
+                    
+          break;
+        
+          case 0 :
+               Sauce.findOne({ _id: req.params.id })
+               .then((sauce) => {
+
+               // Si l'utilisateur enlève son like
+               if (sauce.usersLiked.includes(req.body.userId)) { 
+                    Sauce.updateOne(
+                         { _id: req.params.id },
+                         { $pull: { usersLiked: req.body.userId },
+                         $inc: { likes: -1 }})
+                    .then(() => res.status(200).json({ message: "None." }))
+                    .catch((error) => res.status(400).json({ error }))
+               }
+               
+               // Si l'utilisateur enlève son dislike
+               if (sauce.usersDisliked.includes(req.body.userId)) { 
+                    Sauce.updateOne(
+                         { _id: req.params.id },
+                         { $pull: { usersDisliked: req.body.userId },
+                         $inc: { dislikes: -1 }})
+                    .then(() => res.status(200).json({ message: "None." }))
+                    .catch((error) => res.status(400).json({ error }))
+                    }
+               })
+                  .catch((error) => res.status(404).json({ error }))
+          break;
+        
+          // Ajout d'un dislike et de l'id de l'utilisateur dans les propriétés "dislikes" et "usersDisliked" de la sauce si on reçoit "-1" du front
+          case -1 :
+               
+               // Push de l'id de l'utilisateur dans "usersDisliked" et incrémentation de "dislikes"
+               Sauce.updateOne(
+                    { _id: req.params.id },
+                    { $push: { usersDisliked: req.body.userId },
+                    $inc: { dislikes: +1 }})
+               .then(() => { res.status(200).json({ message: "Yikes!" }) })
+               .catch((error) => res.status(400).json({ error }))
+          break;
+              
+          default:
+          console.log(error);
+     }
+}
