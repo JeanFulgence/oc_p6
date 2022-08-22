@@ -3,10 +3,16 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const path = require("path");
 
-const userRoutes = require('./routes/userRoute')
-const sauceRoutes = require('./routes/sauceRoute')
+// Exportation des modules de sécurité
+const dataSanitize = require("express-mongo-sanitize");
+const hpp = require("hpp")
 
-mongoose.connect("mongodb+srv://Jean:Araflore24@cluster0.kd3z567.mongodb.net/?retryWrites=true&w=majority",
+// Définition des routes
+const userRoutes = require('./routes/userRoute');
+const sauceRoutes = require('./routes/sauceRoute');
+
+// Connexion à la base de données MongoDB
+mongoose.connect("mongodb+srv://Jean:6Fli3CwxaYCymI3M@cluster0.kd3z567.mongodb.net/?retryWrites=true&w=majority",
 {    useNewUrlParser: true,
      useUnifiedTopology: true })
 .then(() => console.log("Connexion à MongoDB réussie."))
@@ -37,8 +43,12 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-app.use('/images', express.static(path.join(__dirname, 'images')))
+// Mesures de sécurité
+app.use(dataSanitize({ allowDots: true })); // Protection contre les injections d'opérateur MongoDB (excepté ".")
+app.use(hpp()); // Protection contre la pollution des paramètres HTTP
 
+// Application des routes
+app.use('/images', express.static(path.join(__dirname, 'images')));
 app.use('/api/auth', userRoutes);
 app.use('/api/sauces', sauceRoutes);
 

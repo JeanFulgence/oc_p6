@@ -10,6 +10,8 @@ const storage = multer.diskStorage({
      destination: (req, file, callback) => {
           callback(null, 'images')
      },
+
+     // Création d'un nom d'image unique à partir de son nom et de la date de l'upload
      filename: (req, file, callback) => {
           const name = file.originalname.split(' ').join('_');
           const extension = MIME_TYPES[file.mimetype];
@@ -17,4 +19,7 @@ const storage = multer.diskStorage({
      }
 });
 
-module.exports = multer({ storage: storage }).single('image');
+module.exports = multer({ 
+     storage: storage, 
+     limits: { fileSize: 10485760 } // Limite de la taille de l'image: 10Mo
+}).single('image');
