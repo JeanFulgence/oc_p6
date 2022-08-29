@@ -37,6 +37,7 @@ const errorHandler = error => {
      }
 }
 
+// On passe par l'application pour gérer les requêtes et réponses
 const server = http.createServer(app);
 
 server.on("error", errorHandler);
