@@ -64,6 +64,25 @@ exports.modifySauce = (req, res, next) => {
 
           // Mise à jour de la sauce
           } else {
+
+               // Si on reçoit une nouvelle image, suppression de l'ancienne
+               if (req.file) {
+                    const filename = sauce.imageUrl.split('/images/')[1];
+                    fs.unlink(`images/${filename}`, () => {
+
+                         // Upload de la nouvelle image
+                         const sauceObject = {
+                            ...JSON.parse(req.body.sauce),
+                            imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
+                         }
+
+                         //Mise à jour de la sauce
+                         Sauce.updateOne({ _id: req.params.id }, { ...sauceObject, _id: req.params.id })
+                            .then(() => res.status(200).json({ message: 'Sauce modifiée.' }))
+                            .catch(error => res.status(400).json({ error }));
+                    });
+               }
+
                const sauceObject = req.file ? {
                
                // Modification de la sauce à partir du corps de la requête
@@ -72,7 +91,7 @@ exports.modifySauce = (req, res, next) => {
                
                // Mise à jour de la sauce
                Sauce.updateOne({ _id : req.params.id}, {...sauceObject, _id: req.params.id})
-               .then(res.status(200).json({ message : "Sauce modifiée"}))
+               .then(res.status(200).json({ message : "Sauce modifiée."}))
                .catch(error => res.status(400).json({ error }));
           }
      })
@@ -95,7 +114,7 @@ exports.deleteSauce = (req, res, next) => {
 
                // Suppression de l'image de la sauce
                const filename = sauce.imageUrl.split("/images/")[1];
-               fs.unlink(`./images/${filename}`, () => {
+               fs.unlink(`images/${filename}`, () => {
                     Sauce.deleteOne({ _id: req.params.id })
                     .then(() => { res.status(200).json({message: "Sauce supprimée."})})
                     .catch(error => res.status(400).json({ error }));
